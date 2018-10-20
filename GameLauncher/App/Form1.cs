@@ -1261,6 +1261,7 @@ namespace GameLauncher
         private void serverPick_TextChanged(object sender, EventArgs e)
         {
             var serverInfo = (ServerInfo)serverPick.SelectedItem;
+            _realServername = serverInfo.Name;
 
             if (serverInfo.IsSpecial)
             {
