@@ -242,7 +242,7 @@ namespace GameLauncher {
             settingsGameFiles.Click += new EventHandler(settingsGameFiles_Click);
             settingsGameFilesCurrent.Click += new EventHandler(settingsGameFilesCurrent_Click);
 
-            addServer.Click += new EventHandler(addServer_Click);
+            //addServer.Click += new EventHandler(addServer_Click);
             launcherStatusDesc.Click += new EventHandler(OpenDebugWindow);
             showmap.Click += new EventHandler(OpenMapHandler);
 
@@ -291,7 +291,9 @@ namespace GameLauncher {
             if (string.IsNullOrEmpty(_settingFile.Read("InstallationDirectory"))) {
                 if(_splashscreen != null) _splashscreen.Hide();
                 Log.Debug("First run!");
-                MessageBox.Show(null, "Howdy! Looks like it's the first time this launcher is started. Please press OK and specify where you want to download all required game files (or select your actual installation).", "GameLauncher", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                _settingFile.Write("InstallationDirectory", Environment.CurrentDirectory + "\\GameFiles");
+
+                /*MessageBox.Show(null, "Howdy! Looks like it's the first time this launcher is started. Please press OK and specify where you want to download all required game files (or select your actual installation).", "GameLauncher", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
                 var fbd = new FolderBrowserDialog();
                 var result = fbd.ShowDialog();
@@ -315,7 +317,7 @@ namespace GameLauncher {
                 } else {
                     Log.Debug("Exiting");
                     Environment.Exit(Environment.ExitCode);
-                }
+                }*/
             }
 
             if (!DetectLinux.UnixDetected()) {
@@ -410,7 +412,7 @@ namespace GameLauncher {
 
             ContextMenu.MenuItems.Add(new MenuItem("About", About.showAbout));
             ContextMenu.MenuItems.Add(new MenuItem("Settings", settingsButton_Click));
-            ContextMenu.MenuItems.Add(new MenuItem("Add Server", addServer_Click));
+            //ContextMenu.MenuItems.Add(new MenuItem("Add Server", addServer_Click));
             ContextMenu.MenuItems.Add("-");
             ContextMenu.MenuItems.Add(new MenuItem("Close launcher", closebtn_Click));
 
@@ -625,16 +627,7 @@ namespace GameLauncher {
 
             var languages = new[] {
                 new { Text = "English", Value = "EN" },
-                new { Text = "Deutsch", Value = "DE" },
-                new { Text = "Español", Value = "ES" },
-                new { Text = "Français", Value = "FR" },
-                new { Text = "Polski", Value = "PL" },
-                new { Text = "Русский", Value = "RU" },
-                new { Text = "Português (Brasil)", Value = "PT" },
-                new { Text = "繁體中文", Value = "TC" },
-                new { Text = "简体中文", Value = "SC" },
-                new { Text = "ภาษาไทย", Value = "TH" },
-                new { Text = "Türkçe", Value = "TR" },
+                new { Text = "ภาษาไทย", Value = "TH" }
             };
 
             settingsLanguage.DataSource = languages;
@@ -660,8 +653,7 @@ namespace GameLauncher {
 
             var cdn = new[] {
                 new { Text = "Electronic Arts Official CDN", Value = "http://static.cdn.ea.com/blackbox/u/f/NFSWO/1614b/client" },
-                new { Text = "MeTonaTOR Mirror - Hosted in PL", Value = "https://launcher.soapboxrace.world/ea_nfsw_section" },
-                new { Text = "Your Machine - Hosted in ??", Value = "http://localhost/ea_nfsw_section" },
+                new { Text = "MeTonaTOR Mirror - Hosted in PL", Value = "https://launcher.soapboxrace.world/ea_nfsw_section" }
             };
 
             cdnPick.DataSource = cdn;
@@ -818,11 +810,11 @@ namespace GameLauncher {
             }
         }
 
-        private void addServer_Click(object sender, EventArgs e)
+        /*private void addServer_Click(object sender, EventArgs e)
         {
             Form x = new AddServer();
             x.Show();
-        }
+        }*/
 
         private void OpenDebugWindow(object sender, EventArgs e)
         {
@@ -1154,7 +1146,7 @@ namespace GameLauncher {
                         Uri stringToUri3 = new Uri(verticalImageUrl);
                         client2.DownloadDataAsync(stringToUri3);
                         client2.DownloadProgressChanged += (sender4, e4) => {
-                            if (e4.TotalBytesToReceive > 2000000) {
+                            if (e4.TotalBytesToReceive > 1000000*10) {
                                 client2.CancelAsync();
                             }
                         };
@@ -1364,7 +1356,7 @@ namespace GameLauncher {
             playProgressText.Visible = hideElements;
             playProgress.Visible = hideElements;
             extractingProgress.Visible = hideElements;
-            addServer.Visible = hideElements;
+            //addServer.Visible = hideElements;
             //allowedCountriesLabel.Visible = hideElements;
             showmap.Visible = hideElements;
             serverPick.Enabled = true;
@@ -1392,7 +1384,7 @@ namespace GameLauncher {
             launcherStatusDesc.Visible = hideElements;
             launcherStatusText.Visible = hideElements;
 
-            addServer.Visible = hideElements;
+            //addServer.Visible = hideElements;
             serverPick.Visible = hideElements;
             serverPick.Enabled = false;
 
@@ -2024,7 +2016,7 @@ namespace GameLauncher {
 
                         ContextMenu = new ContextMenu();
                         ContextMenu.MenuItems.Add(new MenuItem("About", About.showAbout));
-                        ContextMenu.MenuItems.Add(new MenuItem("Add Server", addServer_Click));
+                        //ContextMenu.MenuItems.Add(new MenuItem("Add Server", addServer_Click));
                         ContextMenu.MenuItems.Add("-");
                         ContextMenu.MenuItems.Add(new MenuItem("Close Launcher", (sender2, e2) =>
                         {
