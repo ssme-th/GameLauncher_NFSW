@@ -10,11 +10,11 @@ using System.Windows.Forms;
 
 namespace GameLauncherReborn {
     class Self {
-        public static string mainserver = "http://launcher.soapboxrace.world";
+        public static string mainserver = "https://launcher.superspeed.me";
 
         public static string serverlisturl = mainserver + "/servers";
 
-        public static string internetcheckurl = mainserver + "/generate_204.php";
+        public static string internetcheckurl = mainserver + "/servers";
 		public static string statsurl = mainserver + "/stats";
 
 		private static IniFile SettingFile = new IniFile("Settings.ini");
