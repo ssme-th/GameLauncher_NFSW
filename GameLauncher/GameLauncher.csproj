@@ -177,6 +177,7 @@
     <Compile Include="App\Classes\NativeFunctions.cs" />
     <Compile Include="App\Classes\Events\Updater.cs" />
     <Compile Include="App\Classes\NFSW.cs" />
+    <Compile Include="App\Classes\ParseUri.cs" />
     <Compile Include="App\Classes\ProgressBar.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -210,7 +211,6 @@
     <Compile Include="App\Discord\RichPresenceBuilder.cs" />
     <Compile Include="App\Discord\RichPresenceStruct.cs" />
     <Compile Include="App\Discord\SDK.cs" />
-    <Compile Include="App\Classes\JsonScheme.cs" />
     <Compile Include="App\MainScreen.cs">
       <SubType>Form</SubType>
     </Compile>

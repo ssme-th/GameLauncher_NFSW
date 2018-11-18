@@ -93,6 +93,9 @@ namespace GameLauncher {
         public DiscordUser CurrentUser;
         private Random rnd;
 
+        List<ServerInfo> finalItems = new List<ServerInfo>();
+        Dictionary<string, int> serverStatusDictionary = new Dictionary<string, int>();
+
         Form _splashscreen;
 
         private static Random random = new Random();
@@ -123,11 +126,11 @@ namespace GameLauncher {
         }
 
         void Discord_Ready(ref DiscordUser pUser) {
-            //Invoke(new Action<DiscordUser>((user) => {
-                Log.Debug(String.Format("Connected as {0}#{1}: {2}", pUser.username, pUser.discriminator, pUser.userId));
-            //}), pUser);
+            Invoke(new Action<DiscordUser>((user) => {
+                Log.Debug(String.Format("Connected as {0}#{1}: {2}", user.username, user.discriminator, user.userId));
+            }), pUser);
 
-            //CurrentUser = pUser;
+            CurrentUser = pUser;
         }
 
         void Discord_Disconnect(int code, string message) {
@@ -139,6 +142,22 @@ namespace GameLauncher {
         }
 
         public MainScreen(Form splashscreen) {
+
+            ParseUri uri = new ParseUri(Environment.GetCommandLineArgs());
+
+            if (uri.IsDiscordPresent()) {
+                var notification = new NotifyIcon() {
+                    Visible = true,
+                    Icon = System.Drawing.SystemIcons.Information,
+                    BalloonTipIcon = ToolTipIcon.Info,
+                    BalloonTipTitle = "GameLauncherReborn",
+                    BalloonTipText = "Discord features are not yet completed.",
+                };
+
+                notification.ShowBalloonTip(5000);
+                notification.Dispose();
+            }
+
             Log.Debug("Entered mainScreen");
             _splashscreen = splashscreen;
 
@@ -149,7 +168,7 @@ namespace GameLauncher {
             handlers.errorCallback = Discord_Error;
             handlers.disconnectedCallback = Discord_Disconnect;
             DiscordRpc.Initialize("427355155537723393", ref handlers, true, String.Empty);
-            DiscordRpc.Register("427355155537723393", "GameLauncher.exe --discord");
+            DiscordRpc.Register("427355155537723393", "\"" + Directory.GetCurrentDirectory() + "\\GameLauncher.exe\" --discord");
 
             Log.Debug("Setting SSL Protocol");
             ServicePointManager.Expect100Continue = true;
@@ -276,6 +295,21 @@ namespace GameLauncher {
             this.Shown += (x,y) => {
                 new Thread(() => {
                     DiscordRpc.RunCallbacks();
+
+                    //Let's fetch all servers
+                    List<ServerInfo> allServs = finalItems.FindAll(i => string.Equals(i.IsSpecial, false));
+                    allServs.ForEach(delegate(ServerInfo server) {
+                        try { 
+                            WebClientWithTimeout pingServer = new WebClientWithTimeout();
+                            pingServer.DownloadString(server.IpAddress + "/GetServerInformation");
+
+                            if(!serverStatusDictionary.ContainsKey(server.Id))
+                                serverStatusDictionary.Add(server.Id, 1);
+                        } catch {
+                            if (!serverStatusDictionary.ContainsKey(server.Id))
+                                serverStatusDictionary.Add(server.Id, 0);
+                        }
+                    });
                 }).Start();
             };
 
@@ -356,31 +390,42 @@ namespace GameLauncher {
             }
         }
 
-        private void comboBox1_DrawItem(object sender, DrawItemEventArgs e)
-        {
+        private void comboBox1_DrawItem(object sender, DrawItemEventArgs e) {
             var font = (sender as ComboBox).Font;
-            var backgroundColor = Brushes.White;
-            var textColor = Brushes.Black;
+            Brush backgroundColor;
+            Brush textColor;
 
             var serverListText = "";
+            int onlineStatus = 2; //0 = offline | 1 = online | 2 = checking
 
             if (sender is ComboBox cb) {
                 if (cb.Items[e.Index] is ServerInfo si) {
                     serverListText = si.Name;
+                    onlineStatus = serverStatusDictionary.ContainsKey(si.Id) ? serverStatusDictionary[si.Id] : 2;
                 }
             }
 
             if (serverListText.StartsWith("<GROUP>")) {
                 font = new Font(font, FontStyle.Bold);
-                e.Graphics.FillRectangle(backgroundColor, e.Bounds);
-                e.Graphics.DrawString(serverListText.Replace("<GROUP>", string.Empty), font, textColor, e.Bounds);
+                e.Graphics.FillRectangle(Brushes.White, e.Bounds);
+                e.Graphics.DrawString(serverListText.Replace("<GROUP>", string.Empty), font, Brushes.Black, e.Bounds);
             } else {
                 font = new Font(font, FontStyle.Regular);
                 if ((e.State & DrawItemState.Selected) == DrawItemState.Selected && e.State != DrawItemState.ComboBoxEdit) {
                     backgroundColor = SystemBrushes.Highlight;
                     textColor = SystemBrushes.HighlightText;
                 } else {
-                    backgroundColor = SystemBrushes.Window;
+                    if(onlineStatus == 2) {
+                        //CHECKING
+                        backgroundColor = Brushes.Khaki;
+                    } else if(onlineStatus == 1) {
+                        //ONLINE
+                        backgroundColor = Brushes.PaleGreen;
+                    } else {
+                        //OFFLINE
+                        backgroundColor = Brushes.LightCoral;
+                    }
+
                     textColor = SystemBrushes.WindowText;
                 }
 
@@ -491,8 +536,6 @@ namespace GameLauncher {
             serverPick.DisplayMember = "Name";
 
             var resItems = JsonConvert.DeserializeObject<List<ServerInfo>>(_slresponse);
-
-            var finalItems = new List<ServerInfo>();
 
             foreach (var serverItemGroup in resItems.GroupBy(s => s.Category))
             {
@@ -904,6 +947,8 @@ namespace GameLauncher {
                 return;
             }
 
+            Tokens.Clear();
+
             String username = email.Text.ToString();
             String pass = password.Text.ToString();
             String realpass;
@@ -913,7 +958,7 @@ namespace GameLauncher {
 
             if (_modernAuthSupport == false) {
                 //ClassicAuth sends password in SHA1
-                realpass = (_useSavedPassword) ? _settingFile.Read("Password") : SHA.HashPassword(password.Text.ToString());
+                realpass = (_useSavedPassword) ? _settingFile.Read("Password") : SHA.HashPassword(password.Text.ToString()).ToLower();
                 ClassicAuth.Login(username, realpass);
             } else {
                 //ModernAuth sends passwords in plaintext, but is POST request
@@ -1044,6 +1089,12 @@ namespace GameLauncher {
                     ServerStatusDesc.Text = "Failed to connect to server.";
                     _serverEnabled = false;
                     _allowRegistration = false;
+
+                    if(!serverStatusDictionary.ContainsKey(_serverInfo.Id)) {
+                        serverStatusDictionary.Add(_serverInfo.Id, 2);
+                    } else { 
+                        serverStatusDictionary[_serverInfo.Id] = 2; 
+                    }
                 } else if (e2.Error != null) {
                     ServerStatusBar(_colorOffline, _startPoint, _endPoint);
 
@@ -1052,10 +1103,22 @@ namespace GameLauncher {
                     ServerStatusDesc.Text = "Server seems to be offline.";
                     _serverEnabled = false;
                     _allowRegistration = false;
+
+                    if (!serverStatusDictionary.ContainsKey(_serverInfo.Id)) {
+                        serverStatusDictionary.Add(_serverInfo.Id, 0);
+                    } else {
+                        serverStatusDictionary[_serverInfo.Id] = 0;
+                    }
                 } else {
                     if (_realServername == "Offline Built-In Server") {
                         numPlayers = "∞";
                     } else {
+                        if (!serverStatusDictionary.ContainsKey(_serverInfo.Id)) {
+                            serverStatusDictionary.Add(_serverInfo.Id, 1);
+                        } else {
+                            serverStatusDictionary[_serverInfo.Id] = 1;
+                        }
+
                         var json = JsonConvert.DeserializeObject<GetServerInformation>(e2.Result);
                         try {
                             _realServernameBanner = json.serverName;
@@ -1360,6 +1423,8 @@ namespace GameLauncher {
             //allowedCountriesLabel.Visible = hideElements;
             showmap.Visible = hideElements;
             serverPick.Enabled = true;
+            randomServer.Visible = hideElements;
+            randomServer.Enabled = true;
         }
 
         private void RegisterFormElements(bool hideElements = true) {
@@ -1387,6 +1452,9 @@ namespace GameLauncher {
             //addServer.Visible = hideElements;
             serverPick.Visible = hideElements;
             serverPick.Enabled = false;
+
+            randomServer.Visible = hideElements;
+            randomServer.Enabled = false;
 
             // Reset fields
             registerEmail.Text = "";
@@ -1548,114 +1616,42 @@ namespace GameLauncher {
                 }
 
                 if(allowReg == true) {
-				    if (!(serverPick.SelectedItem is ServerInfo server)) return;
+                    Tokens.Clear();
 
-				    _serverIp = server.IpAddress;
-                    var serverName = _realServername;
-                    var encryptedpassword = "";
-                    var serverLoginResponse = "";
-                    string buildUrl;
+                    String username = registerEmail.Text.ToString();
+                    String realpass;
+                    String token = (_ticketRequired) ? registerTicket.Text : null;
 
-                    encryptedpassword = SHA.HashPassword(registerPassword.Text.ToString());
+                    Tokens.IPAddress = _serverInfo.IpAddress;
+                    Tokens.ServerName = _serverInfo.Name;
 
-                    try {
-                        WebClientWithTimeout wc = new WebClientWithTimeout();
-
-                        if (_ticketRequired) {
-                            buildUrl = _serverIp + "/User/createUser?email=" + registerEmail.Text + "&password=" + encryptedpassword.ToLower() + "&inviteTicket=" + registerTicket.Text;
-                        } else {
-                            buildUrl = _serverIp + "/User/createUser?email=" + registerEmail.Text + "&password=" + encryptedpassword.ToLower();
-                        }
-
-					    Console.WriteLine(buildUrl);
-
-                        serverLoginResponse = wc.DownloadString(buildUrl);
-                    } catch (WebException ex) {
-                        var serverReply = (HttpWebResponse)ex.Response;
-                        if (serverReply == null) {
-                            _errorcode = 500;
-                            serverLoginResponse = "<LoginStatusVO><UserId/><LoginToken/><Description>Failed to get reply from server. Please retry.</Description></LoginStatusVO>";
-                        } else {
-                            using (var sr = new StreamReader(serverReply.GetResponseStream())) {
-                                _errorcode = (int)serverReply.StatusCode;
-                                serverLoginResponse = sr.ReadToEnd();
-                            }
-                        }
+                    if (_modernAuthSupport == false) {
+                        realpass = SHA.HashPassword(registerPassword.Text.ToString()).ToLower();
+                        ClassicAuth.Register(username, realpass, token);
+                    } else {
+                        realpass = registerPassword.Text.ToString();
+                        ModernAuth.Register(username, realpass, token);
                     }
 
-                    try {
-                        var sbrwXml = new XmlDocument();
-                        sbrwXml.LoadXml(serverLoginResponse);
+                    if (!String.IsNullOrEmpty(Tokens.Success)) {
+                        _loggedIn = true;
+                        _userId = Tokens.UserId;
+                        _loginToken = Tokens.LoginToken;
+                        _serverIp = Tokens.IPAddress;
 
-                        XmlNode extraNode;
-                        XmlNode loginTokenNode;
-                        XmlNode userIdNode;
-                        var msgBoxInfo = "";
+                        MessageBox.Show(null, Tokens.Success, "GameLauncher", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 
-                        try {
-                            loginTokenNode = sbrwXml.SelectSingleNode("LoginStatusVO/LoginToken");
-                            userIdNode = sbrwXml.SelectSingleNode("LoginStatusVO/UserId");
+                        BackgroundImage = Properties.Resources.loginbg;
 
-                            if (sbrwXml.SelectSingleNode("LoginStatusVO/Ban") == null) {
-                                if (sbrwXml.SelectSingleNode("LoginStatusVO/Description") == null) {
-                                    extraNode = sbrwXml.SelectSingleNode("html/body");
-                                } else
-                                {
-                                    extraNode = sbrwXml.SelectSingleNode("LoginStatusVO/Description");
-                                }
-                            } else {
-                                extraNode = sbrwXml.SelectSingleNode("LoginStatusVO/Ban");
-                            }
+                        RegisterFormElements(false);
+                        LoginFormElements(true);
 
-                            if (string.IsNullOrEmpty(extraNode.InnerText) || extraNode.InnerText == "SERVER FULL") {
-                                if (extraNode.InnerText == "SERVER FULL") {
-                                    MessageBox.Show(null, string.Format("Successfully registered on {0}. However, server is actually full, therefore you cannot play it right now.", serverName), "GameLauncher", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                                } else {
-                                    MessageBox.Show(null, string.Format("Successfully registered on {0}. You can log in now.", serverName), "GameLauncher", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                                }
-
-                                _userId = userIdNode.InnerText;
-                                _loginToken = loginTokenNode.InnerText;
-
-                                BackgroundImage = Properties.Resources.loginbg;
-
-                                RegisterFormElements(false);
-                                LoginFormElements(true);
-
-                                _loggedIn = true;
-                            } else {
-                                if (extraNode.SelectSingleNode("Reason") != null) {
-                                    msgBoxInfo = string.Format("You got banned on {0}.", serverPick.GetItemText(serverPick.SelectedItem)) + "\n";
-                                    msgBoxInfo += string.Format("Reason: {0}", extraNode.SelectSingleNode("Reason").InnerText);
-
-                                    if (extraNode.SelectSingleNode("Expires") != null) {
-                                        msgBoxInfo += "\n" + string.Format("Ban expires {0}", extraNode.SelectSingleNode("Expires").InnerText);
-                                    } else {
-                                        msgBoxInfo += "\n" + "Banned forever.";
-                                    }
-
-                                    MessageBox.Show(null, msgBoxInfo, "GameLauncher", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                                } else {
-                                    if (extraNode.InnerText == "Please use MeTonaTOR's launcher. Or, are you tampering?") {
-                                        msgBoxInfo = "Launcher tampering detected. Please use original build.";
-                                        MessageBox.Show(null, msgBoxInfo, "GameLauncher", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                                    } else {
-                                        if (sbrwXml.SelectSingleNode("html/body") == null) {
-                                            MessageBox.Show(null, msgBoxInfo, "GameLauncher", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                                        }
-                                        else {
-                                            msgBoxInfo = "ERROR " + _errorcode + ": " + extraNode.InnerText;
-                                            MessageBox.Show(null, msgBoxInfo, "GameLauncher", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                                        }
-                                    }
-                                }
-                            }
-                        } catch {
-                            MessageBox.Show("Server seems to be offline.");
-                        }
-                    } catch {
-                        MessageBox.Show("Server seems to be offline.");
+                        _loggedIn = true;
+                    } else {
+                        MessageBox.Show(null, Tokens.Error, "GameLauncher", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
+
+
                 } else {
                     var message = "There were some errors while registering, please fix them:\n\n";
 
@@ -1840,10 +1836,7 @@ namespace GameLauncher {
             _nfswstarted.IsBackground = true;
             _nfswstarted.Start();
 
-            var selectedServer = (ServerInfo) serverPick.SelectedItem;
-
-            _presenceImageKey = selectedServer.DiscordPresenceKey;
-
+            _presenceImageKey = _serverInfo.DiscordPresenceKey;
             _presence.state = _realServername;
             _presence.details = "Loading game...";
             _presence.largeImageText = "Need for Speed: World";
@@ -2428,6 +2421,21 @@ namespace GameLauncher {
             }
 
             _formGraphics.Dispose();
+        }
+
+        int rememberit;
+        private void randomServer_Click(object sender, EventArgs e) {
+            int total = (finalItems.Count)-(finalItems.FindAll(i => string.Equals(i.IsSpecial, true)).Count); //Prevent summing GROUPS
+            int randomizer = random.Next(total);
+
+            if (finalItems[total].IsSpecial == true) //Prevent picking GROUP as random server
+                randomizer = random.Next(total);
+
+            if (rememberit == randomizer) //Prevent picking same ID as current one
+                randomizer = random.Next(total);
+
+            serverPick.SelectedIndex = randomizer;
+            rememberit = randomizer;
         }
     }
 }
