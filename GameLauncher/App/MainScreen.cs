@@ -1,36 +1,34 @@
-using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Text;
-using System.Windows.Forms;
-using System.Net;
-using System.Security.Cryptography;
-using System.IO;
-using System.Xml;
-using System.Diagnostics;
-using System.Threading;
-using System.Reflection;
-using System.Net.NetworkInformation;
-using GameLauncher.Resources;
+using DiscordRPC;
+using GameLauncher.App;
 using GameLauncher.App.Classes;
-using Newtonsoft.Json;
-using SoapBox.JsonScheme;
+using GameLauncher.App.Classes.Auth;
 using GameLauncher.App.Classes.Events;
+using GameLauncher.App.Classes.Logger;
+using GameLauncher.HashPassword;
+using GameLauncher.Resources;
 using GameLauncherReborn;
 using Microsoft.Win32;
-using GameLauncher.App;
-using GameLauncher.HashPassword;
+using Newtonsoft.Json;
+using SoapBox.JsonScheme;
+using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.Drawing;
+using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
-using Security;
-using GameLauncher.App.Classes.Logger;
-using System.IO.Compression;
-using GameLauncher.App.Classes.Auth;
-using DiscordRPC;
-using DiscordSDK;
+using System.Threading;
+using System.Windows.Forms;
+using System.Xml;
 
-namespace GameLauncher {
+namespace GameLauncher
+{
     public sealed partial class MainScreen : Form {
         private Point _mouseDownPoint = Point.Empty;
         private bool _loginEnabled;
@@ -1419,12 +1417,9 @@ namespace GameLauncher {
             playProgressText.Visible = hideElements;
             playProgress.Visible = hideElements;
             extractingProgress.Visible = hideElements;
-            //addServer.Visible = hideElements;
             //allowedCountriesLabel.Visible = hideElements;
             showmap.Visible = hideElements;
             serverPick.Enabled = true;
-            randomServer.Visible = hideElements;
-            randomServer.Enabled = true;
         }
 
         private void RegisterFormElements(bool hideElements = true) {
@@ -1452,9 +1447,6 @@ namespace GameLauncher {
             //addServer.Visible = hideElements;
             serverPick.Visible = hideElements;
             serverPick.Enabled = false;
-
-            randomServer.Visible = hideElements;
-            randomServer.Enabled = false;
 
             // Reset fields
             registerEmail.Text = "";
